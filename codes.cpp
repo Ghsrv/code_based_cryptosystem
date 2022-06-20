@@ -4,6 +4,7 @@
 #include <iostream>
 #include <utility>
 #include <vector>
+#include <cstring>
 
 
 template < typename T >
@@ -97,6 +98,10 @@ class Matrix {
     Matrix& operator*= (const Matrix& other) {
         *this = *this * other;
         return *this;
+    }
+
+    T& operator[] (size_t ind) {
+        return matrix[ind];
     }
 
     Matrix transposed() const {
@@ -266,7 +271,7 @@ F2 get_ins_bit(const std::vector<F2> v, size_t pos) {
 int main(int argc, char *argv[]) {
     using namespace std;
     bool decode = 0;
-    if (argc > 1 && argv[1] == "-d") {
+    if (argc > 1 && strcmp(argv[1], "-d") == 0) {
         decode = 1;
     }
     ifstream pub;
@@ -368,6 +373,9 @@ int main(int argc, char *argv[]) {
             for (int i = 0; i < 32; ++i) {
                 char c;
                 c = cin.get();
+                if (cin.eof()) {
+                    break;
+                }
                 for (int k = 0; k < 8; ++k) {
                     vm[0][i * 8 + k] = (c & 128) >> 7;
                     c <<= 1;
@@ -375,7 +383,6 @@ int main(int argc, char *argv[]) {
             }
             Matrix m(vm);
             Matrix res1 = m * G;
-            cout << res1 << endl;
             res1 += e;
             vector<F2> ce(res1.begin(), res1.end());
             for (int i = 14; i >= 0; --i) {
@@ -403,7 +410,7 @@ int main(int argc, char *argv[]) {
             }
         } else {
             vector<F2> vc(512 + margin);
-            for (int i = 0; i < (512 + margin) / 8; ++i) {
+            for (int i = 0; i < (512 + margin + 7) / 8; ++i) {
                 char c;
                 c = cin.get();
                 for (int k = 0; k < 8 && i * 8 + k < 512 + margin; ++k) {
@@ -421,7 +428,7 @@ int main(int argc, char *argv[]) {
             vector<int> del_pos;
             for (int i = 0; i < 15; ++i) {
                 if (!insdel[i]) {
-                    del_pos.push_back(pos[i]);
+                    del_pos.push_back((i * (512 / 15) + pos[i]));
                 }
             }
             vector<vector<F2>> G_del_vec;
@@ -433,28 +440,22 @@ int main(int argc, char *argv[]) {
             ce += e;
             for (int i = 0; i < pos.size(); ++i) {
                 if (!insdel[i]) {
-                    cout << (i * (512 / 15) + pos[i]) << endl;
                     G_del_vec.emplace_back(G_T.begin() + (256 * (i * (512 / 15) + pos[i])), G_T.begin() + (256 * (i * (512 / 15) + pos[i] + 1)));
                 }
             }
-            cout << ce << endl;
             Matrix parity = ce * G_T;
-            cout << parity << endl;
             for (int i = 1; i < (1 << del_pos.size()); ++i) {
                 vector<F2> v;
                 for (int j = 0; j < del_pos.size(); ++j) {
                     v.push_back(F2((i >> j) & 1));
                 }
-                if (i == (1 << (del_pos.size())))
-                    cout << Matrix(v) * G_del + parity << endl;
                 if ((Matrix(v) * G_del + parity).is_zero()) {
                     for (int j = 0; j < del_pos.size(); ++j) {
-                        vc[del_pos[j]] = v[j];
+                        ce[del_pos[j]] = v[j] + ce[del_pos[j]];
                     }
                     break;
                 }
             }
-            cout << del_pos.size() << endl;
             ce *= H_1;
             for (auto i : ce) {
                 c <<= 1;
@@ -463,11 +464,15 @@ int main(int argc, char *argv[]) {
                 }
                 cnt++;
                 if (cnt == 8) {
+                    if (c == 0) {
+                        break;
+                    }
                     cout << c;
                     c = 0;
                     cnt = 0;
                 }
             }
         }
+        cin.peek();
     }
 }
